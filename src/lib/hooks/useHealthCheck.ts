@@ -11,6 +11,7 @@ const SOCKET_TIMEOUT = 30000; // 20 секунд таймаут для кажд�
 // Sensor Data Type
 type SensorData = {
     temperature?: string;
+    pulse?: string;
     alcoholLevel?: string;
     sensorReady?: boolean;
     cameraStatus?: 'failed' | 'success';
@@ -20,6 +21,7 @@ type HealthCheckState = {
     currentState: StateKey;
     stabilityTime: number;
     temperatureData: { temperature: number };
+    pulseData: {pulse: number}
     alcoholData: { alcoholLevel: string };
     sensorReady: boolean;
     secondsLeft: number;
@@ -31,6 +33,7 @@ export const useHealthCheck = (): HealthCheckState & {
 } => {
     const navigate = useNavigate();
     const [state, setState] = useState<HealthCheckState>({
+        pulseData: {pulse:0},
         currentState: "TEMPERATURE",
         stabilityTime: 0,
         temperatureData: { temperature: 0 },
@@ -42,10 +45,12 @@ export const useHealthCheck = (): HealthCheckState & {
     const refs = useRef({
         socket: null as Socket | null,
         tempTimeout: null as NodeJS.Timeout | null,
+        pulseTimeout: null as NodeJS.Timeout | null,
         alcoholTimeout: null as NodeJS.Timeout | null,
         lastDataTime: Date.now(),
         hasTimedOutTemp: false,
         hasTimedOutAlcohol: false,
+        hasTimedOutPulse: false,
         isSubmitting: false,
         finalAlcoholLevel: "",
         hasBeenReady: false,
@@ -98,8 +103,9 @@ export const useHealthCheck = (): HealthCheckState & {
     }, [state, navigate]);
 
 
-    const handleTimeout = useCallback((type: "TEMPERATURE" | "ALCOHOL") => {
+    const handleTimeout = useCallback((type: "TEMPERATURE" | "PULSE" | "ALCOHOL") => {
         if (type === "TEMPERATURE" && refs.hasTimedOutTemp) return;
+        if (type === "PULSE" && refs.hasTimedOutPulse) return;
         if (type === "ALCOHOL" && refs.hasTimedOutAlcohol) return;
 
         console.warn(`⏳ Timeout reached for ${type}, navigating home...`);
@@ -107,7 +113,12 @@ export const useHealthCheck = (): HealthCheckState & {
         if (type === "TEMPERATURE") {
             refs.hasTimedOutTemp = true;
             toast.error("Сбой связи с сенсором температуры. Попробуйте снова.");
-        } else if (type === "ALCOHOL") {
+        }
+        else if (type === "PULSE") {
+            refs.hasTimedOutPulse = true;
+            toast.error("Сбой связи с сенсором пульса. Попробуйте снова.");
+        }
+        else if (type === "ALCOHOL") {
             refs.hasTimedOutAlcohol = true;
             toast.error("Вы неправильно подули, повторите попытку.");
         }
@@ -123,7 +134,7 @@ export const useHealthCheck = (): HealthCheckState & {
 
         console.log("📡 Received sensor data:", JSON.stringify(data));
 
-        if (!data || (!data.temperature && !data.alcoholLevel && data.sensorReady === undefined)) {
+        if (!data || (!data.temperature && !data.pulse &&  !data.alcoholLevel && data.sensorReady === undefined)) {
             console.warn("⚠️ No valid sensor data received");
             return;
         }
@@ -145,6 +156,20 @@ export const useHealthCheck = (): HealthCheckState & {
                 ...prev,
                 stabilityTime: prev.stabilityTime + 1,
                 temperatureData: { temperature: tempValue },
+                currentState: prev.stabilityTime + 1 >= MAX_STABILITY_TIME ? "PULSE" : prev.currentState,
+            }));
+
+            clearTimeout(refs.tempTimeout!);
+            refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
+        }
+        if (data.pulse) {
+            const pulseValue = parseFloat(Number(data.pulse).toFixed(2)) || 0;
+            console.log(`🌡️ Temperature received: ${pulseValue}°C`);
+
+            setState((prev) => ({
+                ...prev,
+                stabilityTime: prev.stabilityTime + 1,
+                pulseData: {pulse: pulseValue},
                 currentState: prev.stabilityTime + 1 >= MAX_STABILITY_TIME ? "ALCOHOL" : prev.currentState,
             }));
 
@@ -181,6 +206,7 @@ export const useHealthCheck = (): HealthCheckState & {
         }
 
         refs.socket.off("temperature");
+        refs.socket.off("pulse")
         refs.socket.off("alcohol");
         refs.socket.off("sensorReady");
         refs.socket.off("camera");
@@ -190,7 +216,12 @@ export const useHealthCheck = (): HealthCheckState & {
         if (state.currentState === "TEMPERATURE") {
             refs.socket.on("temperature", handleDataEvent);
             refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
-        } else if (state.currentState === "ALCOHOL") {
+        }
+        else if (state.currentState === "PULSE") {
+            refs.socket.on("pulse", handleDataEvent);
+            refs.tempTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
+        } 
+        else if (state.currentState === "ALCOHOL") {
             refs.socket.on("alcohol", handleDataEvent);
             refs.alcoholTimeout = setTimeout(() => handleTimeout("ALCOHOL"), SOCKET_TIMEOUT);
         }
@@ -206,7 +237,7 @@ export const useHealthCheck = (): HealthCheckState & {
 
     useEffect(() => {
         console.log("🌡 UI updated with temperature:", state.temperatureData.temperature);
-    }, [state.temperatureData.temperature]);
+    }, [state.temperatureData.temperature, state.pulseData.pulse]);
 
     return {
         ...state,

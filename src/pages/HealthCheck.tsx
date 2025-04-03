@@ -12,6 +12,7 @@ export default function HealthCheck() {
         currentState,
         stabilityTime,
         temperatureData,
+        pulseData,
         alcoholData,
         sensorReady,
         secondsLeft,
@@ -24,6 +25,8 @@ export default function HealthCheck() {
     const displayValue =
         currentState === "TEMPERATURE" && temperatureData.temperature !== undefined
             ? Number(temperatureData.temperature).toFixed(1) + "°C"
+            : currentState === "PULSE" && pulseData.pulse !== undefined 
+            ? Number(pulseData.pulse).toFixed(1) + "Уд/мин"
             : currentState === "ALCOHOL" && alcoholData?.alcoholLevel
             ? alcoholData.alcoholLevel
             : "Нет данных";
@@ -31,6 +34,7 @@ export default function HealthCheck() {
     // ✅ Логи для отладки данных
     useEffect(() => {
         console.log("🌡️ Температура обновлена:", temperatureData.temperature);
+        console.log("🌡️ Пульс обновлен:", pulseData.pulse);
         console.log("🍷 Alcohol Level:", alcoholData.alcoholLevel);
         console.log("🚦 Sensor Ready:", sensorReady);
     }, [temperatureData.temperature, alcoholData.alcoholLevel, sensorReady]);
@@ -102,6 +106,9 @@ export default function HealthCheck() {
                         unit={state.unit}
                         progress={
                             currentState === "TEMPERATURE" && temperatureData.temperature !== undefined
+                                ? (stabilityTime / MAX_STABILITY_TIME) * 100
+                                : 
+                                currentState === "PULSE" && pulseData.pulse !== undefined
                                 ? (stabilityTime / MAX_STABILITY_TIME) * 100
                                 : currentState === "ALCOHOL" && alcoholData.alcoholLevel !== "Не определено"
                                 ? 100

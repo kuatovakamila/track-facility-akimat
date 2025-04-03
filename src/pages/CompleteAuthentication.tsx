@@ -11,6 +11,7 @@ export default function HealthCheck() {
 		currentState,
 		stabilityTime,
 		temperatureData,
+		pulseData,
 		alcoholData,
 		secondsLeft,
 		handleComplete,
@@ -21,7 +22,11 @@ export default function HealthCheck() {
 	let displayValue: string | number | null = "loading";
 	if (currentState === "TEMPERATURE" && temperatureData?.temperature !== undefined) {
 		displayValue = Number(temperatureData.temperature).toFixed(1);
-	} else if (currentState === "ALCOHOL" && alcoholData?.alcoholLevel) {
+	} 
+	else if (currentState === "PULSE" && pulseData?.pulse !== undefined) {
+		displayValue = Number(pulseData.pulse).toFixed(1);
+	} 
+	else if (currentState === "ALCOHOL" && alcoholData?.alcoholLevel) {
 		displayValue = alcoholData.alcoholLevel;
 		console.log("📡 Alcohol Level Displayed:", displayValue);
 	}

@@ -9,15 +9,17 @@ export default function FinalResults() {
 
     // Retrieve data from location.state or localStorage (as a fallback)
     const storedTemperature = JSON.parse(localStorage.getItem("finalTemperature") || "null");
+    const storedPulse = JSON.parse(localStorage.getItem("finalPulse") || "null");
     const storedAlcoholLevel = JSON.parse(localStorage.getItem("finalAlcoholLevel") || "null");
 
-    const { temperature, alcoholLevel } = location.state || {
+    const { temperature, alcoholLevel , pulse} = location.state || {
         temperature: storedTemperature ?? "Неизвестно",
         alcoholLevel: storedAlcoholLevel ?? "Неизвестно",
+        pulse: storedPulse ??"Неизвестно"
     };
 
     useEffect(() => {
-        console.log("📡 Final Results - received state:", { temperature, alcoholLevel });
+        console.log("📡 Final Results - received state:", { temperature, alcoholLevel,pulse });
 
         const timeout = setTimeout(() => {
             console.log("🔄 Auto-navigating to home after 7 seconds...");
@@ -37,6 +39,10 @@ export default function FinalResults() {
                     <div className="mb-4">
                         <p className="text-lg text-gray-400">Температура:</p>
                         <p className="text-3xl font-bold">{temperature !== "Неизвестно" ? `${temperature}°C` : "Нет данных"}</p>
+                    </div>
+                    <div className="mb-4">
+                        <p className="text-lg text-gray-400">Пульс:</p>
+                        <p className="text-3xl font-bold">{ pulse!== "Неизвестно" ? `${pulse}Уд/мин` : "Нет данных"}</p>
                     </div>
                     <div className="mb-4">
                         <p className="text-lg text-gray-400">Уровень алкоголя:</p>
