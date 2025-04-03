@@ -40,12 +40,13 @@ export default function FinalResults() {
                         <p className="text-lg text-gray-400">Температура:</p>
                         <p className="text-3xl font-bold">{temperature !== "Неизвестно" ? `${temperature}°C` : "Нет данных"}</p>
                     </div>
+                    <p className="text-lg text-gray-400">Пульс:</p>
+                    <p className="text-3xl font-bold">
+  {pulse !== "Неизвестно" ? `${pulse} Уд/мин` : "Нет данных"}
+</p>
+
                     <div className="mb-4">
-                        <p className="text-lg text-gray-400">Пульс:</p>
-                        <p className="text-3xl font-bold">{ pulse!== "Неизвестно" ? `${pulse}Уд/мин` : "Нет данных"}</p>
-                    </div>
-                    <div className="mb-4">
-                        <p className="text-lg text-gray-400">Уровень алкоголя:</p>
+                        <p className="text-lg text-gray-400">Уыыровень алкоголя:</p>
                         <p className={`text-3xl font-bold ${alcoholLevel === "Пьяный" ? "text-red-500" : "text-green-500"}`}>
                             {alcoholLevel !== "Неизвестно" ? alcoholLevel : "Нет данных"}
                         </p>

@@ -1,19 +1,19 @@
 import {
-	// Heart,
 	Thermometer,
 	Wine,
-	Heart
+	Heart,
 } from "@phosphor-icons/react";
+
 import type { Icon } from "@phosphor-icons/react";
 
 export const STATES = {
-	 PULSE: {
-	 	title: "Измерение пульса",
-	 	subtitle: "Держите палец на месте",
-	 	icon: Heart as Icon,
-	 	value: "Загрузка...",
-	 	unit: "BPM",
-	 },
+	PULSE: {
+		title: "Измерение пульса",
+		subtitle: "Держите палец на месте",
+		icon: Heart as Icon,
+		value: "Загрузка...",
+		unit: "BPM",
+	},
 	TEMPERATURE: {
 		title: "Измерение температуры",
 		subtitle: "Держите палец на месте",
@@ -29,6 +29,7 @@ export const STATES = {
 		unit: "MG",
 	},
 } as const;
+
 
 export type StateKey = keyof typeof STATES;
 
