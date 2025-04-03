@@ -79,6 +79,44 @@ export const useHealthCheck = (): HealthCheckState & {
 		[navigate]
 	);
 
+    const handleComplete = useCallback(async () => {
+		if (refs.isSubmitting || state.currentState !== "ALCOHOL") return;
+		refs.isSubmitting = true;
+
+		try {
+			refs.socket?.disconnect();
+
+			const faceId = localStorage.getItem("faceId");
+			if (!faceId) throw new Error("Face ID not found");
+
+			localStorage.setItem("finalTemperature", JSON.stringify(state.temperatureData.temperature));
+			localStorage.setItem("finalPulse", JSON.stringify(state.pulseData.pulse));
+			localStorage.setItem("finalAlcoholLevel", JSON.stringify(refs.finalAlcoholLevel));
+
+			await fetch("http://localhost:3001/health", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					temperatureData: state.temperatureData,
+					pulseData: state.pulseData,
+					alcoholData: { alcoholLevel: refs.finalAlcoholLevel },
+					faceId,
+				}),
+			});
+
+			navigate("/final-results", {
+				state: {
+					temperature: state.temperatureData.temperature,
+					pulse: state.pulseData.pulse,
+					alcoholLevel: refs.finalAlcoholLevel,
+				},
+				replace: true,
+			});
+		} catch (err) {
+			console.error("❌ handleComplete failed:", err);
+			refs.isSubmitting = false;
+		}
+	}, [state, navigate]);
 	const handleDataEvent = useCallback(
 		(data: SensorData) => {
 			if (!data) return;
@@ -134,44 +172,7 @@ export const useHealthCheck = (): HealthCheckState & {
 		[handleComplete]
 	);
 
-	const handleComplete = useCallback(async () => {
-		if (refs.isSubmitting || state.currentState !== "ALCOHOL") return;
-		refs.isSubmitting = true;
 
-		try {
-			refs.socket?.disconnect();
-
-			const faceId = localStorage.getItem("faceId");
-			if (!faceId) throw new Error("Face ID not found");
-
-			localStorage.setItem("finalTemperature", JSON.stringify(state.temperatureData.temperature));
-			localStorage.setItem("finalPulse", JSON.stringify(state.pulseData.pulse));
-			localStorage.setItem("finalAlcoholLevel", JSON.stringify(refs.finalAlcoholLevel));
-
-			await fetch("http://localhost:3001/health", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					temperatureData: state.temperatureData,
-					pulseData: state.pulseData,
-					alcoholData: { alcoholLevel: refs.finalAlcoholLevel },
-					faceId,
-				}),
-			});
-
-			navigate("/final-results", {
-				state: {
-					temperature: state.temperatureData.temperature,
-					pulse: state.pulseData.pulse,
-					alcoholLevel: refs.finalAlcoholLevel,
-				},
-				replace: true,
-			});
-		} catch (err) {
-			console.error("❌ handleComplete failed:", err);
-			refs.isSubmitting = false;
-		}
-	}, [state, navigate]);
 
 	useEffect(() => {
 		if (!refs.socket) {
