@@ -108,33 +108,34 @@ export default function HealthCheck() {
 
                 {/* 🌀 Один LoadingCircle в зависимости от состояния */}
                 <div className="relative flex items-center justify-center mt-6">
-                    {currentState === "TEMPERATURE" && (
-                        <LoadingCircle
-                            icon={state.icon}
-                            value={displayValue}
-                            unit="°C"
-                            progress={progress}
-                            onComplete={handleComplete}
-                        />
-                    )}
-                    {currentState === "PULSE" && (
-                        <LoadingCircle
-                            icon={state.icon}
-                            value={displayValue}
-                            unit="Уд/мин"
-                            progress={progress}
-                            onComplete={handleComplete}
-                        />
-                    )}
-                    {currentState === "ALCOHOL" && (
-                        <LoadingCircle
-                            icon={state.icon}
-                            value={displayValue}
-                            unit=""
-                            progress={progress}
-                            onComplete={handleComplete}
-                        />
-                    )}
+                {currentState === "TEMPERATURE" && (
+  <LoadingCircle
+    icon={state.icon}
+    value={temperatureData.temperature}
+    unit="°C"
+    progress={progress}
+    onComplete={handleComplete}
+  />
+)}
+{currentState === "PULSE" && (
+  <LoadingCircle
+    icon={state.icon}
+    value={pulseData.pulse}
+    unit="Уд/мин"
+    progress={progress}
+    onComplete={handleComplete}
+  />
+)}
+{currentState === "ALCOHOL" && (
+  <LoadingCircle
+    icon={state.icon}
+    value={alcoholData.alcoholLevel}
+    unit=""
+    progress={progress}
+    onComplete={handleComplete}
+  />
+)}
+
                 </div>
             </motion.div>
         </div>
