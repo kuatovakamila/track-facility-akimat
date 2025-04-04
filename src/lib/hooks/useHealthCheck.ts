@@ -153,28 +153,23 @@ export const useHealthCheck = (): HealthCheckState & {
             const rawBpm = parseFloat(data.bpm);
             if (isNaN(rawBpm)) return;
         
-            console.log("📡 bpm received:", rawBpm);
+            setState((prev) => {
+                const newStability = prev.stabilityTime + 1;
+                const isPulsePhase = prev.currentState === "PULSE";
+                const shouldSwitch = isPulsePhase && newStability >= MAX_STABILITY_TIME;
         
-            // Обновляем значение пульса в UI каждый раз
-            updateState({ pulseData: { pulse: rawBpm } });
+                return {
+                    ...prev,
+                    stabilityTime: isPulsePhase ? newStability : prev.stabilityTime,
+                    pulseData: { pulse: rawBpm }, // 💥 всегда обновляем тут
+                    currentState: shouldSwitch ? "ALCOHOL" : prev.currentState,
+                };
+            });
         
-            // Если сейчас этап PULSE, накапливаем стабильность и переходим к ALCOHOL
-            if (state.currentState === "PULSE") {
-                setState((prev) => {
-                    const newStability = prev.stabilityTime + 1;
-                    const shouldSwitch = newStability >= MAX_STABILITY_TIME;
-        
-                    return {
-                        ...prev,
-                        stabilityTime: newStability,
-                        currentState: shouldSwitch ? "ALCOHOL" : prev.currentState,
-                    };
-                });
-        
-                clearTimeout(refs.pulseTimeout!);
-                refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
-            }
+            clearTimeout(refs.pulseTimeout!);
+            refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
         }
+        
         
         if (data.alcoholLevel && refs.hasBeenReady) {
             refs.finalAlcoholLevel = data.alcoholLevel === "normal" ? "Трезвый" : "Пьяный";
