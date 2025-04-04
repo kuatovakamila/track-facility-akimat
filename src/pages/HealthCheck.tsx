@@ -21,15 +21,6 @@ export default function HealthCheck() {
 
     const state = STATES[currentState];
 
-    const displayValue =
-        currentState === "TEMPERATURE"
-            ? `${temperatureData.temperature.toFixed(1)}°C`
-            : currentState === "PULSE"
-            ? `${pulseData.pulse.toFixed(1)} Уд/мин`
-            : currentState === "ALCOHOL"
-            ? alcoholData.alcoholLevel
-            : "Нет данных";
-
     // Таймер обратного отсчета (для ALCOHOL)
     const [countdown, setCountdown] = useState(secondsLeft);
     const [countdownStarted, setCountdownStarted] = useState(false);
@@ -51,7 +42,7 @@ export default function HealthCheck() {
         }
     }, [sensorReady, countdownStarted, currentState, secondsLeft]);
 
-    // Логирование (опционально)
+    // Логирование
     useEffect(() => {
         console.log("🌡️ Температура:", temperatureData.temperature);
         console.log("🫀 Пульс:", pulseData.pulse);
@@ -108,34 +99,35 @@ export default function HealthCheck() {
 
                 {/* 🌀 Один LoadingCircle в зависимости от состояния */}
                 <div className="relative flex items-center justify-center mt-6">
-                {currentState === "TEMPERATURE" && (
-  <LoadingCircle
-    icon={state.icon}
-    value={temperatureData.temperature}
-    unit="°C"
-    progress={progress}
-    onComplete={handleComplete}
-  />
-)}
-{currentState === "PULSE" && (
-  <LoadingCircle
-    icon={state.icon}
-    value={pulseData.pulse}
-    unit="Уд/мин"
-    progress={progress}
-    onComplete={handleComplete}
-  />
-)}
-{currentState === "ALCOHOL" && (
-  <LoadingCircle
-    icon={state.icon}
-    value={alcoholData.alcoholLevel}
-    unit=""
-    progress={progress}
-    onComplete={handleComplete}
-  />
-)}
+                    {currentState === "TEMPERATURE" && (
+                        <LoadingCircle
+                            icon={state.icon}
+                            value={temperatureData.temperature}
+                            unit="°C"
+                            progress={progress}
+                            onComplete={handleComplete}
+                        />
+                    )}
 
+                    {currentState === "PULSE" && (
+                        <LoadingCircle
+                            icon={state.icon}
+                            value={pulseData.pulse}
+                            unit="Уд/мин"
+                            progress={progress}
+                            onComplete={handleComplete}
+                        />
+                    )}
+
+                    {currentState === "ALCOHOL" && (
+                        <LoadingCircle
+                            icon={state.icon}
+                            value={alcoholData.alcoholLevel}
+                            unit=""
+                            progress={progress}
+                            onComplete={handleComplete}
+                        />
+                    )}
                 </div>
             </motion.div>
         </div>
