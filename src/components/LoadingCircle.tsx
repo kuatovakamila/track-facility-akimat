@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Icon } from "@phosphor-icons/react";
@@ -41,6 +40,11 @@ export const LoadingCircle = ({
 		}
 	}, [progress, onComplete]);
 
+	// 👇 Отладка — выводим входные данные
+	useEffect(() => {
+		console.log("🧪 LoadingCircle value:", value, "| typeof:", typeof value);
+	}, [value]);
+
 	return (
 		<motion.div className="relative w-48 h-48 md:w-56 md:h-56">
 			<svg className="w-full h-full" viewBox="0 0 100 100">
@@ -66,22 +70,21 @@ export const LoadingCircle = ({
 					style={{ rotate: -90 }}
 				/>
 			</svg>
-			<div className="absolute inset-0 flex flex-col items-center justify-center">
-				<Icon
-					weight="bold"
-					className="w-10 h-10 md:w-12 md:h-12 mb-2"
-				/>
-				{value !== null && value !== undefined ? (
-	<>
-		<span className="text-3xl md:text-4xl font-bold">
-			{value}
-		</span>
-		<span className="text-sm md:text-base">{unit}</span>
-	</>
-) : (
-	<LoadingSpinner />
-)}
 
+			<div className="absolute inset-0 flex flex-col items-center justify-center">
+				<Icon weight="bold" className="w-10 h-10 md:w-12 md:h-12 mb-2" />
+				
+				{/* ✅ Надежный способ отрисовать любые значения */}
+				{value !== null && value !== undefined && value !== "" ? (
+					<>
+						<span className="text-3xl md:text-4xl font-bold">
+							{value}
+						</span>
+						<span className="text-sm md:text-base">{unit}</span>
+					</>
+				) : (
+					<LoadingSpinner />
+				)}
 			</div>
 		</motion.div>
 	);
