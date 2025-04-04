@@ -4,11 +4,9 @@ import { io, type Socket } from "socket.io-client";
 import { toast } from "react-hot-toast";
 import { StateKey } from "../constants";
 
-// Constants
 const MAX_STABILITY_TIME = 7;
-const SOCKET_TIMEOUT = 30000; // 20 секунд таймаут для каждого сенсора
+const SOCKET_TIMEOUT = 30000;
 
-// Sensor Data Type
 type SensorData = {
     temperature?: string;
     bpm?: string;
@@ -21,7 +19,7 @@ type HealthCheckState = {
     currentState: StateKey;
     stabilityTime: number;
     temperatureData: { temperature: number };
-    pulseData: {pulse: number};
+    pulseData: { pulse: number };
     alcoholData: { alcoholLevel: string };
     sensorReady: boolean;
     secondsLeft: number;
@@ -32,11 +30,12 @@ export const useHealthCheck = (): HealthCheckState & {
     setCurrentState: React.Dispatch<React.SetStateAction<StateKey>>;
 } => {
     const navigate = useNavigate();
+
     const [state, setState] = useState<HealthCheckState>({
-        pulseData: {pulse: 0},
         currentState: "TEMPERATURE",
         stabilityTime: 0,
         temperatureData: { temperature: 0 },
+        pulseData: { pulse: 0 },
         alcoholData: { alcoholLevel: "Не определено" },
         sensorReady: false,
         secondsLeft: 30,
@@ -45,8 +44,8 @@ export const useHealthCheck = (): HealthCheckState & {
     const refs = useRef({
         socket: null as Socket | null,
         tempTimeout: null as NodeJS.Timeout | null,
+        pulseTimeout: null as NodeJS.Timeout | null,
         alcoholTimeout: null as NodeJS.Timeout | null,
-        pulseTimeout: null as NodeJS.Timeout | null, 
         lastDataTime: Date.now(),
         hasTimedOutTemp: false,
         hasTimedOutPulse: false,
@@ -62,12 +61,12 @@ export const useHealthCheck = (): HealthCheckState & {
         },
         []
     );
+
     const handleComplete = useCallback(async () => {
         if (refs.isSubmitting || refs.hasTimedOutAlcohol || state.currentState !== "ALCOHOL") return;
         refs.isSubmitting = true;
 
         try {
-            console.log("🔌 Disconnecting WebSockets before authentication...");
             refs.socket?.off("temperature");
             refs.socket?.off("heartbeat");
             refs.socket?.off("alcohol");
@@ -76,7 +75,6 @@ export const useHealthCheck = (): HealthCheckState & {
             const faceId = localStorage.getItem("faceId");
             if (!faceId) throw new Error("Face ID not found");
 
-            console.log("🚀 Sending health check data...");
             const response = await fetch("http://localhost:3001/health", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -90,7 +88,6 @@ export const useHealthCheck = (): HealthCheckState & {
 
             if (!response.ok) throw new Error("Request failed");
 
-            console.log("✅ Data submitted, navigating to final results...");
             navigate("/final-results", {
                 state: {
                     pulseData: state.pulseData.pulse,
@@ -105,23 +102,18 @@ export const useHealthCheck = (): HealthCheckState & {
         }
     }, [state, navigate]);
 
-
     const handleTimeout = useCallback((type: "TEMPERATURE" | "PULSE" | "ALCOHOL") => {
         if (type === "TEMPERATURE" && refs.hasTimedOutTemp) return;
-        if (type === "PULSE" && refs.hasTimedOutPulse) return ;
+        if (type === "PULSE" && refs.hasTimedOutPulse) return;
         if (type === "ALCOHOL" && refs.hasTimedOutAlcohol) return;
-
-        console.warn(`⏳ Timeout reached for ${type}, navigating home...`);
 
         if (type === "TEMPERATURE") {
             refs.hasTimedOutTemp = true;
             toast.error("Сбой связи с сенсором температуры. Попробуйте снова.");
-        }
-        else if(type === "PULSE") {
+        } else if (type === "PULSE") {
             refs.hasTimedOutPulse = true;
             toast.error("Сбой связи с сенсором пульса. Попробуйте снова.");
-        }
-        else if (type === "ALCOHOL") {
+        } else if (type === "ALCOHOL") {
             refs.hasTimedOutAlcohol = true;
             toast.error("Вы неправильно подули, повторите попытку.");
         }
@@ -130,71 +122,50 @@ export const useHealthCheck = (): HealthCheckState & {
     }, [navigate]);
 
     const handleDataEvent = useCallback((data: SensorData) => {
-        if (refs.hasTimedOutTemp || refs.hasTimedOutPulse || refs.hasTimedOutAlcohol) {
-            console.warn("🚫 Ignoring data after timeout");
-            return;
-        }
+        if (refs.hasTimedOutTemp || refs.hasTimedOutPulse || refs.hasTimedOutAlcohol) return;
+        if (!data) return;
 
-        console.log("📡 Received sensor data:", JSON.stringify(data));
-
-        if (!data || (!data.temperature && !data.bpm && !data.alcoholLevel && data.sensorReady === undefined)) {
-            console.warn("⚠️ No valid sensor data received");
-            return;
-        }
-
-        refs.lastDataTime = Date.now();
-
-        // ✅ Обновляем sensorReady только если он становится true
-        if (data.sensorReady !== undefined && !refs.hasBeenReady) {
-            console.log(`🚦 Sensor ready: ${data.sensorReady}`);
-            if (data.sensorReady) refs.hasBeenReady = true;
-            updateState({ sensorReady: refs.hasBeenReady });
+        if (data.sensorReady && !refs.hasBeenReady) {
+            refs.hasBeenReady = true;
+            updateState({ sensorReady: true });
         }
 
         if (data.temperature) {
-            const tempValue = parseFloat(Number(data.temperature).toFixed(2)) || 0;
-            console.log(`🌡️ Temperature received: ${tempValue}°C`);
-
+            const temp = parseFloat(data.temperature);
             setState((prev) => ({
                 ...prev,
                 stabilityTime: prev.stabilityTime + 1,
-                temperatureData: { temperature: tempValue },
+                temperatureData: { temperature: temp },
                 currentState: prev.stabilityTime + 1 >= MAX_STABILITY_TIME ? "PULSE" : prev.currentState,
             }));
-
             clearTimeout(refs.tempTimeout!);
             refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
         }
+
         if (data.bpm !== undefined) {
-            const p = parseFloat(data.bpm);
+            const pulse = parseFloat(data.bpm);
             setState((prev) => ({
                 ...prev,
                 stabilityTime: prev.stabilityTime + 1,
-                pulseData: { pulse: p },
+                pulseData: { pulse },
                 currentState: prev.stabilityTime + 1 >= MAX_STABILITY_TIME ? "ALCOHOL" : prev.currentState,
             }));
             clearTimeout(refs.pulseTimeout!);
             refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
         }
 
-        if (refs.hasBeenReady && data.alcoholLevel !== null) {
+        if (data.alcoholLevel && refs.hasBeenReady) {
             refs.finalAlcoholLevel = data.alcoholLevel === "normal" ? "Трезвый" : "Пьяный";
-            console.log(`✅ Alcohol detected as "${refs.finalAlcoholLevel}", navigating...`);
-
-            setState((prev) => ({
-                ...prev,
-                stabilityTime: MAX_STABILITY_TIME,
+            updateState({
                 alcoholData: { alcoholLevel: refs.finalAlcoholLevel },
-            }));
-
+                stabilityTime: MAX_STABILITY_TIME,
+            });
             clearTimeout(refs.alcoholTimeout!);
             refs.alcoholTimeout = setTimeout(() => handleTimeout("ALCOHOL"), SOCKET_TIMEOUT);
-
             handleComplete();
         }
-    }, [handleComplete]);
+    }, [handleComplete, updateState, handleTimeout]);
 
-  
     useEffect(() => {
         if (!refs.socket) {
             refs.socket = io("http://localhost:3001", {
@@ -205,44 +176,59 @@ export const useHealthCheck = (): HealthCheckState & {
             });
         }
 
-        refs.socket.off("temperature");
-        refs.socket.off("alcohol");
-        refs.socket.off("heartbeat")
-        refs.socket.off("sensorReady");
-        refs.socket.off("camera");
+        const socket = refs.socket;
 
-        console.log(`🔄 Setting up WebSocket listeners for state: ${state.currentState}`);
+        socket.off("temperature");
+        socket.off("heartbeat");
+        socket.off("alcohol");
+        socket.off("sensorReady");
+        socket.off("camera");
 
-        if (state.currentState === "TEMPERATURE") {
-            refs.socket.on("temperature", handleDataEvent);
+        socket.on("temperature", handleDataEvent);
+        socket.on("heartbeat", handleDataEvent);
+        socket.on("alcohol", handleDataEvent);
+        socket.on("sensorReady", handleDataEvent);
+        socket.on("camera", handleDataEvent);
+
+        // Устанавливаем таймауты
+        if (state.currentState === "TEMPERATURE" && !refs.tempTimeout) {
             refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
-        } 
-        else if (state.currentState === "PULSE") {
-            refs.socket.on("heartbeat", handleDataEvent);
-            refs.alcoholTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
         }
-        else if (state.currentState === "ALCOHOL") {
-            refs.socket.on("alcohol", handleDataEvent);
+
+        if (refs.hasBeenReady && !refs.pulseTimeout) {
+            refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
+        }
+
+        if (state.currentState === "ALCOHOL" && !refs.alcoholTimeout) {
             refs.alcoholTimeout = setTimeout(() => handleTimeout("ALCOHOL"), SOCKET_TIMEOUT);
         }
 
-        refs.socket.on("sensorReady", handleDataEvent);
-        refs.socket.on("camera", handleDataEvent);
-
         return () => {
+            socket.off("temperature");
+            socket.off("heartbeat");
+            socket.off("alcohol");
+            socket.off("sensorReady");
+            socket.off("camera");
+
             clearTimeout(refs.tempTimeout!);
+            clearTimeout(refs.pulseTimeout!);
             clearTimeout(refs.alcoholTimeout!);
+            refs.tempTimeout = null;
+            refs.pulseTimeout = null;
+            refs.alcoholTimeout = null;
         };
     }, [state.currentState, handleTimeout, handleDataEvent]);
-
-    useEffect(() => {
-        console.log("🌡 UI updated with temperature:", state.temperatureData.temperature);
-    }, [state.temperatureData.temperature]);
 
     return {
         ...state,
         handleComplete,
-        setCurrentState: (newState) => updateState({ currentState: typeof newState === "function" ? newState(state.currentState) : newState }),
+        setCurrentState: (newState) =>
+            updateState({
+                currentState:
+                    typeof newState === "function"
+                        ? newState(state.currentState)
+                        : newState,
+            }),
     };
 };
 
