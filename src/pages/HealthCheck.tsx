@@ -1,223 +1,125 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { io, type Socket } from "socket.io-client";
-import { toast } from "react-hot-toast";
-import { StateKey } from "../lib/constants";
+import { useHealthCheck } from "../lib/hooks/useHealthCheck";
+import { useEffect, useState } from "react";
+import { Header } from "../components/Header";
+import { LoadingCircle } from "../components/LoadingCircle";
+import { STATES } from "../lib/constants";
+import { motion, AnimatePresence } from "framer-motion";
 
 const MAX_STABILITY_TIME = 7;
-const SOCKET_TIMEOUT = 30000;
 
-type SensorData = {
-	temperature?: string;
-	bpm?: string;
-	alcoholLevel?: string;
-	sensorReady?: boolean;
-};
+export default function HealthCheck() {
+    const {
+        currentState,
+        stabilityTime,
+        temperatureData,
+        alcoholData,
+        sensorReady,
+        secondsLeft,
+        handleComplete,
+    } = useHealthCheck();
 
-type HealthCheckState = {
-	currentState: StateKey;
-	stabilityTime: number;
-	temperatureData: { temperature: number };
-	pulseData: { pulse: number };
-	alcoholData: { alcoholLevel: string };
-	sensorReady: boolean;
-	secondsLeft: number;
-};
+    const state = STATES[currentState];
 
-export const useHealthCheck = (): HealthCheckState & {
-	handleComplete: () => Promise<void>;
-	setCurrentState: React.Dispatch<React.SetStateAction<StateKey>>;
-} => {
-	const navigate = useNavigate();
-	const [state, setState] = useState<HealthCheckState>({
-		currentState: "TEMPERATURE",
-		stabilityTime: 0,
-		temperatureData: { temperature: 0 },
-		pulseData: { pulse: 0 },
-		alcoholData: { alcoholLevel: "Не определено" },
-		sensorReady: false,
-		secondsLeft: 30,
-	});
+    // ✅ Реалтайм-обновление значения (температура + алкоголь)
+    const displayValue =
+        currentState === "TEMPERATURE" && temperatureData.temperature !== undefined
+            ? Number(temperatureData.temperature).toFixed(1) + "°C"
+            : currentState === "ALCOHOL" && alcoholData?.alcoholLevel
+            ? alcoholData.alcoholLevel
+            : "Нет данных";
 
-	const refs = useRef({
-		socket: null as Socket | null,
-		tempTimeout: null as NodeJS.Timeout | null,
-		pulseTimeout: null as NodeJS.Timeout | null,
-		alcoholTimeout: null as NodeJS.Timeout | null,
-		lastDataTime: Date.now(),
-		hasTimedOutTemp: false,
-		hasTimedOutPulse: false,
-		hasTimedOutAlcohol: false,
-		isSubmitting: false,
-		finalAlcoholLevel: "",
-		hasBeenReady: false,
-		tempStability: 0,
-		pulseStability: 0,
-	}).current;
+    // ✅ Логи для отладки данных
+    useEffect(() => {
+        console.log("🌡️ Температура обновлена:", temperatureData.temperature);
+        console.log("🍷 Alcohol Level:", alcoholData.alcoholLevel);
+        console.log("🚦 Sensor Ready:", sensorReady);
+    }, [temperatureData.temperature, alcoholData.alcoholLevel, sensorReady]);
 
-	const updateState = useCallback(
-		<K extends keyof HealthCheckState>(updates: Pick<HealthCheckState, K>) => {
-			setState((prev) => ({ ...prev, ...updates }));
-		},
-		[]
-	);
+    // 🆕 Локальный таймер для обратного отсчета
+    const [countdown, setCountdown] = useState(secondsLeft);
+    const [countdownStarted, setCountdownStarted] = useState(false);
 
-	const handleComplete = useCallback(async () => {
-		if (refs.isSubmitting || refs.hasTimedOutAlcohol || state.currentState !== "ALCOHOL") return;
-		refs.isSubmitting = true;
+    useEffect(() => {
+        if (currentState === "ALCOHOL" && sensorReady && !countdownStarted) {
+            setCountdownStarted(true);
+            setCountdown(secondsLeft);
 
-		try {
-			refs.socket?.disconnect();
+            const timer = setInterval(() => {
+                setCountdown((prev) => {
+                    if (prev > 0) return prev - 1;
+                    clearInterval(timer);
+                    return 0;
+                });
+            }, 1000);
 
-			const faceId = localStorage.getItem("faceId");
-			if (!faceId) throw new Error("Face ID not found");
+            return () => clearInterval(timer);
+        }
+    }, [sensorReady, countdownStarted, currentState, secondsLeft]);
 
-			localStorage.setItem("finalTemperature", JSON.stringify(state.temperatureData.temperature));
-			localStorage.setItem("finalPulse", JSON.stringify(state.pulseData.pulse));
-			localStorage.setItem("finalAlcoholLevel", JSON.stringify(refs.finalAlcoholLevel));
+    return (
+        <div className="min-h-screen bg-black text-white flex flex-col">
+            <Header />
+            <motion.div className="flex-1 flex flex-col items-center justify-center p-6">
+                <AnimatePresence mode="wait">
+                    <motion.div key={currentState} className="text-center">
+                        {currentState === "ALCOHOL" && !sensorReady ? (
+                            <>
+                                <motion.h1 className="text-xl md:text-2xl font-medium mb-2">
+                                    Ожидание сенсора...
+                                </motion.h1>
+                                <motion.p className="text-gray-400 mb-12">
+                                    Пожалуйста, подождите...
+                                </motion.p>
+                            </>
+                        ) : (
+                            <>
+                                <motion.h1 className="text-xl md:text-2xl font-medium mb-2">
+                                    {state.title}
+                                </motion.h1>
 
-			const response = await fetch("http://localhost:3001/health", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					temperatureData: state.temperatureData,
-					pulseData: state.pulseData,
-					alcoholData: { alcoholLevel: refs.finalAlcoholLevel },
-					faceId,
-				}),
-			});
+                                {currentState === "ALCOHOL" && sensorReady && countdown > 0 ? (
+                                    <motion.p className="text-lg text-yellow-400 mb-4">
+                                        Осталось {countdown} секунд
+                                    </motion.p>
+                                ) : (
+                                    <motion.p className="text-gray-400 mb-4">
+                                        {currentState === "ALCOHOL"
+                                            ? "Подуйте 3-4 секунды"
+                                            : state.subtitle}
+                                    </motion.p>
+                                )}
+                            </>
+                        )}
+                    </motion.div>
+                </AnimatePresence>
 
-			if (!response.ok) throw new Error("Request failed");
-
-			navigate("/final-results", {
-				state: {
-					temperature: state.temperatureData.temperature,
-					pulse: state.pulseData.pulse,
-					alcoholLevel: refs.finalAlcoholLevel,
-				},
-				replace: true,
-			});
-		} catch (error) {
-			console.error("❌ Submission error:", error);
-			refs.isSubmitting = false;
-		}
-	}, [state, navigate]);
-
-	const handleTimeout = useCallback((type: "TEMPERATURE" | "PULSE" | "ALCOHOL") => {
-		if (type === "TEMPERATURE" && refs.hasTimedOutTemp) return;
-		if (type === "PULSE" && refs.hasTimedOutPulse) return;
-		if (type === "ALCOHOL" && refs.hasTimedOutAlcohol) return;
-
-		if (type === "TEMPERATURE") refs.hasTimedOutTemp = true;
-		else if (type === "PULSE") refs.hasTimedOutPulse = true;
-		else if (type === "ALCOHOL") refs.hasTimedOutAlcohol = true;
-
-		toast.error(`Сбой связи с сенсором: ${type}`);
-		setTimeout(() => navigate("/", { replace: true }), 1000);
-	}, [navigate]);
-
-	const handleDataEvent = useCallback((data: SensorData) => {
-		if (refs.hasTimedOutTemp || refs.hasTimedOutPulse || refs.hasTimedOutAlcohol) return;
-
-		if (data.sensorReady && !refs.hasBeenReady) {
-			refs.hasBeenReady = true;
-			updateState({ sensorReady: true });
-		}
-
-		let transitioned = false;
-
-		if (data.temperature) {
-			const t = parseFloat(data.temperature);
-			refs.tempStability++;
-			updateState({ temperatureData: { temperature: t } });
-
-			clearTimeout(refs.tempTimeout!);
-			refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
-		}
-
-		if (data.bpm !== undefined) {
-			const p = Number(data.bpm);
-			refs.pulseStability++;
-			updateState({ pulseData: { pulse: p } });
-
-			clearTimeout(refs.pulseTimeout!);
-			refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
-		}
-
-		// Переход к алкоголю, если обе стабильности достигнуты
-		if (
-			!transitioned &&
-			state.currentState !== "ALCOHOL" &&
-			refs.tempStability >= MAX_STABILITY_TIME &&
-			refs.pulseStability >= MAX_STABILITY_TIME
-		) {
-			updateState({ currentState: "ALCOHOL", stabilityTime: 0 });
-			transitioned = true;
-		}
-
-		if (data.alcoholLevel && refs.hasBeenReady) {
-			refs.finalAlcoholLevel = data.alcoholLevel === "normal" ? "Трезвый" : "Пьяный";
-			updateState({
-				stabilityTime: MAX_STABILITY_TIME,
-				alcoholData: { alcoholLevel: refs.finalAlcoholLevel },
-			});
-			clearTimeout(refs.alcoholTimeout!);
-			refs.alcoholTimeout = setTimeout(() => handleTimeout("ALCOHOL"), SOCKET_TIMEOUT);
-			handleComplete();
-		}
-	}, [handleComplete, handleTimeout, state.currentState, updateState]);
-
-	useEffect(() => {
-		if (!refs.socket) {
-			refs.socket = io("http://localhost:3001", {
-				transports: ["websocket"],
-			});
-	 }
-
-		// Сброс всех подписок
-		refs.socket.off("temperature");
-		refs.socket.off("heartbeat");
-		refs.socket.off("alcohol");
-		refs.socket.off("sensorReady");
-
-		// Всегда слушаем и температуру, и пульс, и алкоголь
-		refs.socket.on("temperature", handleDataEvent);
-		refs.socket.on("heartbeat", handleDataEvent);
-		refs.socket.on("alcohol", handleDataEvent);
-		refs.socket.on("sensorReady", handleDataEvent);
-
-		// Устанавливаем таймеры
-		if (!refs.tempTimeout) {
-			refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
-		}
-		if (!refs.pulseTimeout) {
-			refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
-		}
-		if (state.currentState === "ALCOHOL" && !refs.alcoholTimeout) {
-			refs.alcoholTimeout = setTimeout(() => handleTimeout("ALCOHOL"), SOCKET_TIMEOUT);
-		}
-
-		return () => {
-			refs.socket?.off("temperature");
-			refs.socket?.off("heartbeat");
-			refs.socket?.off("alcohol");
-			refs.socket?.off("sensorReady");
-
-			clearTimeout(refs.tempTimeout!);
-			clearTimeout(refs.pulseTimeout!);
-			clearTimeout(refs.alcoholTimeout!);
-			refs.tempTimeout = null;
-			refs.pulseTimeout = null;
-			refs.alcoholTimeout = null;
-		};
-	}, [state.currentState, handleTimeout, handleDataEvent]);
-
-	return {
-		...state,
-		handleComplete,
-		setCurrentState: (newState) =>
-			updateState({
-				currentState: typeof newState === "function" ? newState(state.currentState) : newState,
-			}),
-	};
-};
+                {/* ✅ Центрируем температуру ПОД иконкой, но НАД прогресс-баром */}
+                <div className="relative flex items-center justify-center">
+                    <LoadingCircle
+                        key={currentState}
+                        icon={state.icon}
+                        value={displayValue}
+                        unit={state.unit}
+                        progress={
+                            currentState === "TEMPERATURE" && temperatureData.temperature !== undefined
+                                ? (stabilityTime / MAX_STABILITY_TIME) * 100
+                                : currentState === "ALCOHOL" && alcoholData.alcoholLevel !== "Не определено"
+                                ? 100
+                                : 0
+                        }
+                        onComplete={handleComplete}
+                    />
+                    {/* ✅ Температура ровно между иконкой и прогресс-баром */}
+                    <motion.p
+                        className="absolute top-[50%] md:top-[53%] text-xs md:text-sm font-medium text-white"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        {displayValue}
+                    </motion.p>
+                </div>
+            </motion.div>
+        </div>
+    );
+}
