@@ -28,8 +28,6 @@ type HealthCheckState = {
 export const useHealthCheck = (): HealthCheckState & {
     handleComplete: () => Promise<void>;
     setCurrentState: React.Dispatch<React.SetStateAction<StateKey>>;
-    temperatureStability: number;
-    pulseStability: number;
 } => {
     const navigate = useNavigate();
 
@@ -55,9 +53,6 @@ export const useHealthCheck = (): HealthCheckState & {
         finalAlcoholLevel: "",
         hasBeenReady: false,
     }).current;
-
-    const temperatureStability = useRef(0);
-    const pulseStability = useRef(0);
 
     const updateState = useCallback(
         <K extends keyof HealthCheckState>(updates: Pick<HealthCheckState, K>) => {
@@ -138,23 +133,17 @@ export const useHealthCheck = (): HealthCheckState & {
         if (data.temperature) {
             const temp = parseFloat(parseFloat(data.temperature).toFixed(1));
 
-            if (state.currentState === "TEMPERATURE") {
-                temperatureStability.current += 1;
+            setState((prev) => {
+                const newStability = prev.stabilityTime + 1;
+                const shouldSwitch = newStability >= MAX_STABILITY_TIME && prev.currentState === "TEMPERATURE";
 
-                setState((prev) => ({
+                return {
                     ...prev,
-                    stabilityTime: temperatureStability.current,
+                    stabilityTime: newStability,
                     temperatureData: { temperature: temp },
-                    currentState: temperatureStability.current >= MAX_STABILITY_TIME
-                        ? "PULSE"
-                        : prev.currentState,
-                }));
-            } else {
-                setState((prev) => ({
-                    ...prev,
-                    temperatureData: { temperature: temp },
-                }));
-            }
+                    currentState: shouldSwitch ? "PULSE" : prev.currentState,
+                };
+            });
 
             clearTimeout(refs.tempTimeout!);
             refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
@@ -162,28 +151,24 @@ export const useHealthCheck = (): HealthCheckState & {
 
         if (data.bpm !== undefined) {
             const pulse = parseFloat(data.bpm);
-
-            if (state.currentState === "PULSE") {
-                pulseStability.current += 1;
-
-                setState((prev) => ({
+        
+            setState((prev) => {
+                const newStability = prev.stabilityTime + 1;
+                const isStable = newStability >= MAX_STABILITY_TIME;
+                const shouldSwitch = isStable && prev.currentState === "PULSE";
+        
+                return {
                     ...prev,
-                    stabilityTime: pulseStability.current,
+                    stabilityTime: newStability,
                     pulseData: { pulse },
-                    currentState: pulseStability.current >= MAX_STABILITY_TIME
-                        ? "ALCOHOL"
-                        : prev.currentState,
-                }));
-            } else {
-                setState((prev) => ({
-                    ...prev,
-                    pulseData: { pulse },
-                }));
-            }
-
+                    currentState: shouldSwitch ? "ALCOHOL" : prev.currentState,
+                };
+            });
+        
             clearTimeout(refs.pulseTimeout!);
             refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
         }
+        
 
         if (data.alcoholLevel && refs.hasBeenReady) {
             refs.finalAlcoholLevel = data.alcoholLevel === "normal" ? "Трезвый" : "Пьяный";
@@ -198,7 +183,7 @@ export const useHealthCheck = (): HealthCheckState & {
             refs.alcoholTimeout = setTimeout(() => handleTimeout("ALCOHOL"), SOCKET_TIMEOUT);
             handleComplete();
         }
-    }, [handleComplete, updateState, handleTimeout, state.currentState]);
+    }, [handleComplete, updateState, handleTimeout]);
 
     useEffect(() => {
         if (!refs.socket) {
@@ -224,10 +209,11 @@ export const useHealthCheck = (): HealthCheckState & {
         socket.on("sensorReady", handleDataEvent);
         socket.on("camera", handleDataEvent);
 
+        // Таймауты
         if (state.currentState === "TEMPERATURE" && !refs.tempTimeout) {
             refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
         }
-        if (state.currentState === "PULSE" && !refs.pulseTimeout) {
+        if (refs.hasBeenReady && !refs.pulseTimeout) {
             refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
         }
         if (state.currentState === "ALCOHOL" && !refs.alcoholTimeout) {
@@ -248,9 +234,6 @@ export const useHealthCheck = (): HealthCheckState & {
             refs.tempTimeout = null;
             refs.pulseTimeout = null;
             refs.alcoholTimeout = null;
-
-            temperatureStability.current = 0;
-            pulseStability.current = 0;
         };
     }, [state.currentState, handleTimeout, handleDataEvent]);
 
@@ -264,8 +247,6 @@ export const useHealthCheck = (): HealthCheckState & {
                         ? newState(state.currentState)
                         : newState,
             }),
-        temperatureStability: temperatureStability.current,
-        pulseStability: pulseStability.current,
     };
 };
 
