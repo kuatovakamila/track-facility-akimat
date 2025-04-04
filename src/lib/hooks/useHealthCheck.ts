@@ -28,6 +28,8 @@ type HealthCheckState = {
 export const useHealthCheck = (): HealthCheckState & {
     handleComplete: () => Promise<void>;
     setCurrentState: React.Dispatch<React.SetStateAction<StateKey>>;
+    temperatureStability: number;
+    pulseStability: number;
 } => {
     const navigate = useNavigate();
 
@@ -54,7 +56,7 @@ export const useHealthCheck = (): HealthCheckState & {
         hasBeenReady: false,
     }).current;
 
-    const tempStability = useRef(0);
+    const temperatureStability = useRef(0);
     const pulseStability = useRef(0);
 
     const updateState = useCallback(
@@ -137,14 +139,15 @@ export const useHealthCheck = (): HealthCheckState & {
             const temp = parseFloat(parseFloat(data.temperature).toFixed(1));
 
             if (state.currentState === "TEMPERATURE") {
-                tempStability.current += 1;
-                const stable = tempStability.current;
+                temperatureStability.current += 1;
 
                 setState((prev) => ({
                     ...prev,
-                    stabilityTime: stable,
+                    stabilityTime: temperatureStability.current,
                     temperatureData: { temperature: temp },
-                    currentState: stable >= MAX_STABILITY_TIME ? "PULSE" : prev.currentState,
+                    currentState: temperatureStability.current >= MAX_STABILITY_TIME
+                        ? "PULSE"
+                        : prev.currentState,
                 }));
             } else {
                 setState((prev) => ({
@@ -162,13 +165,14 @@ export const useHealthCheck = (): HealthCheckState & {
 
             if (state.currentState === "PULSE") {
                 pulseStability.current += 1;
-                const stable = pulseStability.current;
 
                 setState((prev) => ({
                     ...prev,
-                    stabilityTime: stable,
+                    stabilityTime: pulseStability.current,
                     pulseData: { pulse },
-                    currentState: stable >= MAX_STABILITY_TIME ? "ALCOHOL" : prev.currentState,
+                    currentState: pulseStability.current >= MAX_STABILITY_TIME
+                        ? "ALCOHOL"
+                        : prev.currentState,
                 }));
             } else {
                 setState((prev) => ({
@@ -192,7 +196,6 @@ export const useHealthCheck = (): HealthCheckState & {
 
             clearTimeout(refs.alcoholTimeout!);
             refs.alcoholTimeout = setTimeout(() => handleTimeout("ALCOHOL"), SOCKET_TIMEOUT);
-
             handleComplete();
         }
     }, [handleComplete, updateState, handleTimeout, state.currentState]);
@@ -246,7 +249,7 @@ export const useHealthCheck = (): HealthCheckState & {
             refs.pulseTimeout = null;
             refs.alcoholTimeout = null;
 
-            tempStability.current = 0;
+            temperatureStability.current = 0;
             pulseStability.current = 0;
         };
     }, [state.currentState, handleTimeout, handleDataEvent]);
@@ -261,6 +264,8 @@ export const useHealthCheck = (): HealthCheckState & {
                         ? newState(state.currentState)
                         : newState,
             }),
+        temperatureStability: temperatureStability.current,
+        pulseStability: pulseStability.current,
     };
 };
 
