@@ -153,8 +153,12 @@ export const useHealthCheck = (): HealthCheckState & {
             const rawBpm = parseFloat(data.bpm);
             if (isNaN(rawBpm)) return;
         
-            updateState({ pulseData: { pulse: rawBpm } }); // 👈 всегда обновляем значение
+            console.log("📡 bpm received:", rawBpm);
         
+            // Обновляем значение пульса в UI каждый раз
+            updateState({ pulseData: { pulse: rawBpm } });
+        
+            // Если сейчас этап PULSE, накапливаем стабильность и переходим к ALCOHOL
             if (state.currentState === "PULSE") {
                 setState((prev) => {
                     const newStability = prev.stabilityTime + 1;
@@ -172,7 +176,6 @@ export const useHealthCheck = (): HealthCheckState & {
             }
         }
         
-
         if (data.alcoholLevel && refs.hasBeenReady) {
             refs.finalAlcoholLevel = data.alcoholLevel === "normal" ? "Трезвый" : "Пьяный";
 
