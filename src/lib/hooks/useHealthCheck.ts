@@ -9,7 +9,7 @@ const SOCKET_TIMEOUT = 30000;
 
 type SensorData = {
     temperature?: string;
-    pulse?: string;
+    bpm?: string; // ← слушаем heartbeat, приходит bpm
     alcoholLevel?: string;
     sensorReady?: boolean;
 };
@@ -134,8 +134,8 @@ export const useHealthCheck = (): HealthCheckState & {
             refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
         }
 
-        if (data.pulse !== undefined) {
-            const p = parseFloat(data.pulse);
+        if (data.bpm !== undefined) {
+            const p = parseFloat(data.bpm);
             setState((prev) => ({
                 ...prev,
                 stabilityTime: prev.stabilityTime + 1,
@@ -167,7 +167,7 @@ export const useHealthCheck = (): HealthCheckState & {
         }
 
         refs.socket.off("temperature");
-        refs.socket.off("pulse");
+        refs.socket.off("heartbeat"); // ← слушаем heartbeat
         refs.socket.off("alcohol");
         refs.socket.off("sensorReady");
 
@@ -175,7 +175,7 @@ export const useHealthCheck = (): HealthCheckState & {
             refs.socket.on("temperature", handleDataEvent);
             refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
         } else if (state.currentState === "PULSE") {
-            refs.socket.on("pulse", handleDataEvent);
+            refs.socket.on("heartbeat", handleDataEvent); // ← изменено с "pulse"
             refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
         } else if (state.currentState === "ALCOHOL") {
             refs.socket.on("alcohol", handleDataEvent);
