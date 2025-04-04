@@ -23,13 +23,14 @@ export default function HealthCheck() {
 
     // ✅ Безопасное отображение значений
     const displayValue =
-        currentState === "TEMPERATURE" && temperatureData.temperature !== undefined
-            ? `${temperatureData.temperature.toFixed(1)}°C`
-            : currentState === "PULSE" && pulseData.pulse !== undefined
-            ? `${pulseData.pulse.toFixed(1)} Уд/мин`
-            : currentState === "ALCOHOL" && alcoholData.alcoholLevel
-            ? alcoholData.alcoholLevel
-            : "Нет данных";
+	currentState === "TEMPERATURE"
+		? `${temperatureData.temperature.toFixed(1)}°C`
+		: (currentState === "PULSE" || (currentState === "ALCOHOL" && pulseData.pulse > 0))
+		? `${pulseData.pulse.toFixed(1)} Уд/мин`
+		: currentState === "ALCOHOL"
+		? alcoholData.alcoholLevel
+		: "Нет данных";
+
 
     // ✅ Логи для отладки
     useEffect(() => {
