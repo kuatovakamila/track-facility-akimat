@@ -7,19 +7,24 @@ export default function FinalResults() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Retrieve data from location.state or localStorage (as a fallback)
+    // Fallback данные из localStorage
     const storedTemperature = JSON.parse(localStorage.getItem("finalTemperature") || "null");
     const storedPulse = JSON.parse(localStorage.getItem("finalPulse") || "null");
     const storedAlcoholLevel = JSON.parse(localStorage.getItem("finalAlcoholLevel") || "null");
 
-    const { temperature, alcoholLevel , pulse} = location.state || {
+    // ✅ Используем pulseValue вместо pulse, чтобы избежать конфликта
+    const { temperature, alcoholLevel, pulse: pulseValue } = location.state || {
         temperature: storedTemperature ?? "Неизвестно",
         alcoholLevel: storedAlcoholLevel ?? "Неизвестно",
-        pulse: storedPulse ??"Неизвестно"
+        pulse: storedPulse ?? "Неизвестно",
     };
 
     useEffect(() => {
-        console.log("📡 Final Results - received state:", { temperature, alcoholLevel,pulse });
+        console.log("📡 Final Results - received state:", {
+            temperature,
+            alcoholLevel,
+            pulse: pulseValue,
+        });
 
         const timeout = setTimeout(() => {
             console.log("🔄 Auto-navigating to home after 7 seconds...");
@@ -27,28 +32,47 @@ export default function FinalResults() {
         }, 7000);
 
         return () => clearTimeout(timeout);
-    }, [navigate, temperature, alcoholLevel]);
+    }, [navigate, temperature, alcoholLevel, pulseValue]);
 
     return (
         <div className="min-h-screen bg-black text-white flex flex-col">
             <Header />
             <motion.div className="flex-1 flex flex-col items-center justify-center p-6">
-                <motion.h1 className="text-2xl font-semibold mb-6">Результаты проверки</motion.h1>
+                <motion.h1 className="text-2xl font-semibold mb-6">
+                    Результаты проверки
+                </motion.h1>
 
                 <div className="w-full max-w-md bg-gray-900 p-6 rounded-lg shadow-md text-center">
                     <div className="mb-4">
                         <p className="text-lg text-gray-400">Температура:</p>
-                        <p className="text-3xl font-bold">{temperature !== "Неизвестно" ? `${temperature}°C` : "Нет данных"}</p>
+                        <p className="text-3xl font-bold">
+                            {temperature !== "Неизвестно"
+                                ? `${temperature}°C`
+                                : "Нет данных"}
+                        </p>
                     </div>
-                    <p className="text-lg text-gray-400">Пульс:</p>
-                    <p className="text-3xl font-bold">
-  {pulse !== "Неизвестно" ? `${pulse} Уд/мин` : "Нет данных"}
-</p>
 
                     <div className="mb-4">
-                        <p className="text-lg text-gray-400">Уыыровень алкоголя:</p>
-                        <p className={`text-3xl font-bold ${alcoholLevel === "Пьяный" ? "text-red-500" : "text-green-500"}`}>
-                            {alcoholLevel !== "Неизвестно" ? alcoholLevel : "Нет данных"}
+                        <p className="text-lg text-gray-400">Пульс:</p>
+                        <p className="text-3xl font-bold">
+                            {pulseValue !== "Неизвестно"
+                                ? `${pulseValue} Уд/мин`
+                                : "Нет данных"}
+                        </p>
+                    </div>
+
+                    <div className="mb-4">
+                        <p className="text-lg text-gray-400">Уровень алкоголя:</p>
+                        <p
+                            className={`text-3xl font-bold ${
+                                alcoholLevel === "Пьяный"
+                                    ? "text-red-500"
+                                    : "text-green-500"
+                            }`}
+                        >
+                            {alcoholLevel !== "Неизвестно"
+                                ? alcoholLevel
+                                : "Нет данных"}
                         </p>
                     </div>
                 </div>
