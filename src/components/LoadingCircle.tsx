@@ -71,16 +71,17 @@ export const LoadingCircle = ({
 					weight="bold"
 					className="w-10 h-10 md:w-12 md:h-12 mb-2"
 				/>
-				{typeof value === "number" ? (
-					<>
-						<span className="text-3xl md:text-4xl font-bold">
-							{value}
-						</span>
-						<span className="text-sm md:text-base">{unit}</span>
-					</>
-				) : (
-					<LoadingSpinner />
-				)}
+				{value !== null && value !== undefined ? (
+	<>
+		<span className="text-3xl md:text-4xl font-bold">
+			{value}
+		</span>
+		<span className="text-sm md:text-base">{unit}</span>
+	</>
+) : (
+	<LoadingSpinner />
+)}
+
 			</div>
 		</motion.div>
 	);
