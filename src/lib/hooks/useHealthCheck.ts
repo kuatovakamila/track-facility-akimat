@@ -54,6 +54,9 @@ export const useHealthCheck = (): HealthCheckState & {
         hasBeenReady: false,
     }).current;
 
+    const tempStability = useRef(0);
+    const pulseStability = useRef(0);
+
     const updateState = useCallback(
         <K extends keyof HealthCheckState>(updates: Pick<HealthCheckState, K>) => {
             setState((prev) => ({ ...prev, ...updates }));
@@ -131,19 +134,24 @@ export const useHealthCheck = (): HealthCheckState & {
         }
 
         if (data.temperature) {
-            const temp = parseFloat(data.temperature);
+            const temp = parseFloat(parseFloat(data.temperature).toFixed(1));
 
-            setState((prev) => {
-                const newStability = prev.stabilityTime + 1;
-                const shouldSwitch = newStability >= MAX_STABILITY_TIME && prev.currentState === "TEMPERATURE";
+            if (state.currentState === "TEMPERATURE") {
+                tempStability.current += 1;
+                const stable = tempStability.current;
 
-                return {
+                setState((prev) => ({
                     ...prev,
-                    stabilityTime: newStability,
+                    stabilityTime: stable,
                     temperatureData: { temperature: temp },
-                    currentState: shouldSwitch ? "PULSE" : prev.currentState,
-                };
-            });
+                    currentState: stable >= MAX_STABILITY_TIME ? "PULSE" : prev.currentState,
+                }));
+            } else {
+                setState((prev) => ({
+                    ...prev,
+                    temperatureData: { temperature: temp },
+                }));
+            }
 
             clearTimeout(refs.tempTimeout!);
             refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
@@ -152,17 +160,22 @@ export const useHealthCheck = (): HealthCheckState & {
         if (data.bpm !== undefined) {
             const pulse = parseFloat(data.bpm);
 
-            setState((prev) => {
-                const newStability = prev.stabilityTime + 1;
-                const shouldSwitch = newStability >= MAX_STABILITY_TIME && prev.currentState === "PULSE";
+            if (state.currentState === "PULSE") {
+                pulseStability.current += 1;
+                const stable = pulseStability.current;
 
-                return {
+                setState((prev) => ({
                     ...prev,
-                    stabilityTime: newStability,
+                    stabilityTime: stable,
                     pulseData: { pulse },
-                    currentState: shouldSwitch ? "ALCOHOL" : prev.currentState,
-                };
-            });
+                    currentState: stable >= MAX_STABILITY_TIME ? "ALCOHOL" : prev.currentState,
+                }));
+            } else {
+                setState((prev) => ({
+                    ...prev,
+                    pulseData: { pulse },
+                }));
+            }
 
             clearTimeout(refs.pulseTimeout!);
             refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
@@ -179,9 +192,10 @@ export const useHealthCheck = (): HealthCheckState & {
 
             clearTimeout(refs.alcoholTimeout!);
             refs.alcoholTimeout = setTimeout(() => handleTimeout("ALCOHOL"), SOCKET_TIMEOUT);
+
             handleComplete();
         }
-    }, [handleComplete, updateState, handleTimeout]);
+    }, [handleComplete, updateState, handleTimeout, state.currentState]);
 
     useEffect(() => {
         if (!refs.socket) {
@@ -207,11 +221,10 @@ export const useHealthCheck = (): HealthCheckState & {
         socket.on("sensorReady", handleDataEvent);
         socket.on("camera", handleDataEvent);
 
-        // Таймауты
         if (state.currentState === "TEMPERATURE" && !refs.tempTimeout) {
             refs.tempTimeout = setTimeout(() => handleTimeout("TEMPERATURE"), SOCKET_TIMEOUT);
         }
-        if (refs.hasBeenReady && !refs.pulseTimeout) {
+        if (state.currentState === "PULSE" && !refs.pulseTimeout) {
             refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
         }
         if (state.currentState === "ALCOHOL" && !refs.alcoholTimeout) {
@@ -232,6 +245,9 @@ export const useHealthCheck = (): HealthCheckState & {
             refs.tempTimeout = null;
             refs.pulseTimeout = null;
             refs.alcoholTimeout = null;
+
+            tempStability.current = 0;
+            pulseStability.current = 0;
         };
     }, [state.currentState, handleTimeout, handleDataEvent]);
 
