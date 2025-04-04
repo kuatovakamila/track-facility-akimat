@@ -110,7 +110,6 @@ export default function HealthCheck() {
         onComplete={handleComplete}
     />
 )}
-
                     {currentState === "PULSE" && (
                         <LoadingCircle
                             icon={state.icon}
