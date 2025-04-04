@@ -21,25 +21,25 @@ export default function HealthCheck() {
 
     const state = STATES[currentState];
 
-    // ✅ Реалтайм-обновление значения (температура + алкоголь)
+    // ✅ Реалтайм-обновление значения
     const displayValue =
-        currentState === "TEMPERATURE" && temperatureData.temperature !== undefined
-            ? Number(temperatureData.temperature).toFixed(1) + "°C"
-            : currentState === "PULSE" && pulseData.pulse !== undefined 
-            ? Number(pulseData.pulse).toFixed(1) + "Уд/мин"
-            : currentState === "ALCOHOL" && alcoholData?.alcoholLevel
+        currentState === "TEMPERATURE"
+            ? `${temperatureData.temperature.toFixed(1)}°C`
+            : currentState === "PULSE"
+            ? `${pulseData.pulse.toFixed(1)} Уд/мин`
+            : currentState === "ALCOHOL"
             ? alcoholData.alcoholLevel
             : "Нет данных";
 
-    // ✅ Логи для отладки данных
+    // ✅ Логи для отладки
     useEffect(() => {
         console.log("🌡️ Температура обновлена:", temperatureData.temperature);
-        console.log("🌡️ Пульс обновлен:", pulseData.pulse);
+        console.log("🫀 Пульс обновлен:", pulseData.pulse);
         console.log("🍷 Alcohol Level:", alcoholData.alcoholLevel);
         console.log("🚦 Sensor Ready:", sensorReady);
-    }, [temperatureData.temperature, alcoholData.alcoholLevel, sensorReady]);
+    }, [temperatureData.temperature, pulseData.pulse, alcoholData.alcoholLevel, sensorReady]);
 
-    // 🆕 Локальный таймер для обратного отсчета
+    // 🆕 Таймер обратного отсчета для алкоголя
     const [countdown, setCountdown] = useState(secondsLeft);
     const [countdownStarted, setCountdownStarted] = useState(false);
 
@@ -59,6 +59,14 @@ export default function HealthCheck() {
             return () => clearInterval(timer);
         }
     }, [sensorReady, countdownStarted, currentState, secondsLeft]);
+
+    // 🌀 Прогресс круга измерений
+    const progress =
+        ["TEMPERATURE", "PULSE"].includes(currentState)
+            ? (stabilityTime / MAX_STABILITY_TIME) * 100
+            : currentState === "ALCOHOL" && alcoholData.alcoholLevel !== "Не определено"
+            ? 100
+            : 0;
 
     return (
         <div className="min-h-screen bg-black text-white flex flex-col">
@@ -97,26 +105,17 @@ export default function HealthCheck() {
                     </motion.div>
                 </AnimatePresence>
 
-                {/* ✅ Центрируем температуру ПОД иконкой, но НАД прогресс-баром */}
+                {/* ✅ Центрированная иконка + данные */}
                 <div className="relative flex items-center justify-center">
                     <LoadingCircle
                         key={currentState}
                         icon={state.icon}
                         value={displayValue}
                         unit={state.unit}
-                        progress={
-                            currentState === "TEMPERATURE" && temperatureData.temperature !== undefined
-                                ? (stabilityTime / MAX_STABILITY_TIME) * 100
-                                : 
-                                currentState === "PULSE" && pulseData.pulse !== undefined
-                                ? (stabilityTime / MAX_STABILITY_TIME) * 100
-                                : currentState === "ALCOHOL" && alcoholData.alcoholLevel !== "Не определено"
-                                ? 100
-                                : 0
-                        }
+                        progress={progress}
                         onComplete={handleComplete}
                     />
-                    {/* ✅ Температура ровно между иконкой и прогресс-баром */}
+                    {/* ✅ Значение поверх круга */}
                     <motion.p
                         className="absolute top-[50%] md:top-[53%] text-xs md:text-sm font-medium text-white"
                         initial={{ opacity: 0 }}
