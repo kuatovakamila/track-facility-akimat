@@ -99,15 +99,17 @@ export default function HealthCheck() {
 
                 {/* 🌀 Один LoadingCircle в зависимости от состояния */}
                 <div className="relative flex items-center justify-center mt-6">
-                    {currentState === "TEMPERATURE" && (
-                        <LoadingCircle
-                            icon={state.icon}
-                            value={temperatureData.temperature}
-                            unit="°C"
-                            progress={progress}
-                            onComplete={handleComplete}
-                        />
-                    )}
+                {currentState === "TEMPERATURE" && (
+    <LoadingCircle
+        icon={state.icon}
+        value={typeof temperatureData.temperature === "number"
+            ? temperatureData.temperature.toFixed(2)
+            : "Нет данных"}
+        unit="°C"
+        progress={progress}
+        onComplete={handleComplete}
+    />
+)}
 
                     {currentState === "PULSE" && (
                         <LoadingCircle
