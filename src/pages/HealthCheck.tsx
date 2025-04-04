@@ -21,23 +21,24 @@ export default function HealthCheck() {
 
     const state = STATES[currentState];
 
-    // ✅ Реалтайм-обновление значения
+    // ✅ Безопасное отображение значений
     const displayValue =
-        currentState === "TEMPERATURE"
+        currentState === "TEMPERATURE" && temperatureData.temperature !== undefined
             ? `${temperatureData.temperature.toFixed(1)}°C`
-            : currentState === "PULSE"
+            : currentState === "PULSE" && pulseData.pulse !== undefined
             ? `${pulseData.pulse.toFixed(1)} Уд/мин`
-            : currentState === "ALCOHOL"
+            : currentState === "ALCOHOL" && alcoholData.alcoholLevel
             ? alcoholData.alcoholLevel
             : "Нет данных";
 
     // ✅ Логи для отладки
     useEffect(() => {
-        console.log("🌡️ Температура обновлена:", temperatureData.temperature);
-        console.log("🫀 Пульс обновлен:", pulseData.pulse);
+        console.log("📍 Состояние:", currentState);
+        console.log("🌡️ Температура:", temperatureData.temperature);
+        console.log("🫀 Пульс:", pulseData.pulse);
         console.log("🍷 Alcohol Level:", alcoholData.alcoholLevel);
         console.log("🚦 Sensor Ready:", sensorReady);
-    }, [temperatureData.temperature, pulseData.pulse, alcoholData.alcoholLevel, sensorReady]);
+    }, [currentState, temperatureData.temperature, pulseData.pulse, alcoholData.alcoholLevel, sensorReady]);
 
     // 🆕 Таймер обратного отсчета для алкоголя
     const [countdown, setCountdown] = useState(secondsLeft);
@@ -124,6 +125,11 @@ export default function HealthCheck() {
                     >
                         {displayValue}
                     </motion.p>
+                </div>
+
+                {/* 👇 Удалить после отладки */}
+                <div className="mt-4 text-xs text-gray-500">
+                    Debug: {JSON.stringify(pulseData)}
                 </div>
             </motion.div>
         </div>
