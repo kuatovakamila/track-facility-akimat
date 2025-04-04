@@ -150,23 +150,26 @@ export const useHealthCheck = (): HealthCheckState & {
         }
 
         if (data.bpm !== undefined) {
-            const pulse = parseFloat(data.bpm);
+            const rawBpm = parseFloat(data.bpm);
+            if (isNaN(rawBpm)) return;
         
-            setState((prev) => {
-                const newStability = prev.stabilityTime + 1;
-                const isStable = newStability >= MAX_STABILITY_TIME;
-                const shouldSwitch = isStable && prev.currentState === "PULSE";
+            updateState({ pulseData: { pulse: rawBpm } }); // 👈 всегда обновляем значение
         
-                return {
-                    ...prev,
-                    stabilityTime: newStability,
-                    pulseData: { pulse },
-                    currentState: shouldSwitch ? "ALCOHOL" : prev.currentState,
-                };
-            });
+            if (state.currentState === "PULSE") {
+                setState((prev) => {
+                    const newStability = prev.stabilityTime + 1;
+                    const shouldSwitch = newStability >= MAX_STABILITY_TIME;
         
-            clearTimeout(refs.pulseTimeout!);
-            refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
+                    return {
+                        ...prev,
+                        stabilityTime: newStability,
+                        currentState: shouldSwitch ? "ALCOHOL" : prev.currentState,
+                    };
+                });
+        
+                clearTimeout(refs.pulseTimeout!);
+                refs.pulseTimeout = setTimeout(() => handleTimeout("PULSE"), SOCKET_TIMEOUT);
+            }
         }
         
 
